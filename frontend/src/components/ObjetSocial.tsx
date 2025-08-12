@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 
-type Item = { id:number; code:number; nomination:string; agrement:boolean };
+type Item   = { id:number; code:number; nomination:string; agrement:boolean };
 type Master = { id:number; nomination:string; agrement:boolean };
 
 export default function ObjetSocial({ clientId }:{ clientId:string }){
@@ -11,18 +11,12 @@ export default function ObjetSocial({ clientId }:{ clientId:string }){
   const [items,setItems] = useState<Item[]>([]);
   const [loading,setLoading] = useState(true);
 
-  // menu / modals
-  const [menuOpen,setMenuOpen] = useState(false);
-  const [showCreate,setShowCreate] = useState(false);
-  const [showAssign,setShowAssign] = useState(false);
-
-  // create modal state
-  const [newNom,setNewNom] = useState("");
-  const [newAgr,setNewAgr] = useState(false);
-
-  // assign modal state
+  // unified modal
+  const [open,setOpen] = useState(false);
   const [masters,setMasters] = useState<Master[]>([]);
-  const [selected,setSelected] = useState<number|"">("");
+  const [nom,setNom] = useState("");
+  const [agr,setAgr] = useState(false);
+  const [matchedId,setMatchedId] = useState<number|null>(null);
 
   async function refresh(){
     setLoading(true);
@@ -32,125 +26,132 @@ export default function ObjetSocial({ clientId }:{ clientId:string }){
   }
   useEffect(()=>{ refresh(); },[clientId]);
 
+  async function openModal(){
+    const r = await fetch(mastersUrl, { cache:"no-store" });
+    setMasters(await r.json());
+    setNom(""); setAgr(false); setMatchedId(null);
+    setOpen(true);
+  }
+
+  function onNomChange(v:string){
+    setNom(v);
+    const m = masters.find(x => x.nomination.toLowerCase() === v.trim().toLowerCase());
+    if (m){ setMatchedId(m.id); setAgr(!!m.agrement); } else { setMatchedId(null); }
+  }
+
+  async function submit(){
+    // If matched to existing master → attach; else create master then attach
+    if(matchedId !== null){
+      const m = masters.find(x=>x.id===matchedId);
+      if(!m){ alert("Sélection invalide."); return; }
+      const r = await fetch(base, {
+        method:"POST", headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ nomination:m.nomination, agrement:m.agrement })
+      });
+      if(!r.ok){ alert("Échec d'affectation"); return; }
+    }else{
+      if(!nom.trim()){ alert("Nomination est obligatoire."); return; }
+      const m = await fetch(mastersUrl, {
+        method:"POST", headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ nomination: nom.trim(), agrement: agr })
+      });
+      if(!m.ok){ alert("Échec de création"); return; }
+      const r = await fetch(base, {
+        method:"POST", headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ nomination: nom.trim(), agrement: agr })
+      });
+      if(!r.ok){ alert("Échec d'affectation"); return; }
+    }
+    setOpen(false);
+    await refresh();
+  }
+
   async function removeItem(id:number){
     await fetch(`${base}${id}/`, { method:"DELETE" });
     await refresh();
   }
 
-  async function openCreate(){
-    setNewNom(""); setNewAgr(false);
-    setShowCreate(true); setMenuOpen(false);
-  }
-
-  async function submitCreate(){
-    // create master then attach to this client
-    const m = await fetch(mastersUrl, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ nomination:newNom, agrement:newAgr })});
-    if(!m.ok){ alert("Échec création objet social"); return; }
-    await fetch(base, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ nomination:newNom, agrement:newAgr })});
-    setShowCreate(false); await refresh();
-  }
-
-  async function openAssign(){
-    const r = await fetch(mastersUrl, { cache:"no-store" });
-    setMasters(await r.json());
-    setSelected("");
-    setShowAssign(true); setMenuOpen(false);
-  }
-
-  async function submitAssign(){
-    const m = masters.find(x=>x.id===selected);
-    if(!m){ alert("Sélectionnez un objet social"); return; }
-    await fetch(base, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ nomination:m.nomination, agrement:m.agrement })});
-    setShowAssign(false); await refresh();
-  }
-
   return (
     <div className="space-y-4">
-
-      {/* Header actions */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Liste des objets sociaux</h2>
-        <div className="flex items-center gap-2 relative">
-          <button className="btn btn-primary" onClick={()=>setMenuOpen(v=>!v)}>Ajouter</button>
-          {menuOpen && (
-            <div className="absolute right-0 top-10 card p-2 w-56 z-10">
-              <button className="btn w-full mb-2" onClick={openCreate}>Créer un objet social</button>
-              <button className="btn w-full" onClick={openAssign}>Affecter à la société</button>
-            </div>
-          )}
-          <a className="btn" target="_blank" rel="noreferrer" href="https://sms-tunisia.com/professional/companysetting/socialobject">Paramètres</a>
+        <div className="flex items-center gap-2">
+          <button className="btn btn-primary" onClick={openModal}>Ajouter</button>
+          <a className="btn" target="_blank" rel="noreferrer"
+             href="http://localhost:3000/professional/companysetting">Paramètres</a>
         </div>
       </div>
 
       {/* Table */}
       <div className="card overflow-auto">
-        {loading ? <div className="p-4 text-sm text-[var(--muted)]">Chargement…</div> :
-        <table className="table">
-          <thead><tr><th>CODE</th><th>NOMINATION</th><th>AGRÉMENT</th><th>ACTION</th></tr></thead>
-          <tbody>
-            {items.map(it=>(
-              <tr key={it.id} className="row">
-                <td className="p-2">{it.code}</td>
-                <td className="p-2">{it.nomination}</td>
-                <td className="p-2">{it.agrement ? "Oui" : "Non"}</td>
-                <td className="p-2">
-                  <button className="btn btn-danger" onClick={()=>removeItem(it.id)}>Supprimer</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>}
+        {loading ? (
+          <div className="p-4 text-sm text-[var(--muted)]">Chargement…</div>
+        ) : (
+          <table className="table">
+            <thead>
+              <tr><th>CODE</th><th>NOMINATION</th><th>AGRÉMENT</th><th>ACTION</th></tr>
+            </thead>
+            <tbody>
+              {items.map(it=>(
+                <tr key={it.id} className="row">
+                  <td className="p-2">{it.code}</td>
+                  <td className="p-2">{it.nomination}</td>
+                  <td className="p-2">{it.agrement ? "Oui" : "Non"}</td>
+                  <td className="p-2">
+                    <button className="btn btn-danger" onClick={()=>removeItem(it.id)}>Supprimer</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
-      {/* Create modal */}
-      {showCreate && (
+      {/* One modal with one "Nomination *" */}
+      {open && (
         <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40">
-          <div className="card w-[520px]">
-            <h3 className="text-center text-lg font-semibold mb-4">AJOUTER UN OBJET SOCIAL</h3>
+          <div className="card w-[560px]">
+            <h3 className="text-center text-lg font-semibold mb-4">AJOUTER / AFFECTER UN OBJET SOCIAL</h3>
+
             <div className="space-y-3">
               <div className="space-y-1">
                 <label className="text-xs">Nomination *</label>
-                <input className="input" value={newNom} onChange={e=>setNewNom(e.target.value)}/>
+                {/* input with suggestions from master list */}
+                <input list="os-list" className="input" value={nom}
+                       onChange={e=>onNomChange(e.target.value)} placeholder="Sélectionnez un objet social" />
+                <datalist id="os-list">
+                  {masters.map(m => <option key={m.id} value={m.nomination} />)}
+                </datalist>
+                <p className="text-[11px] text-[var(--muted)]">
+                  Sélectionnez un objet existant ou saisissez un nouveau nom.
+                </p>
               </div>
+
               <div className="space-y-1">
                 <label className="text-xs">Avec Agrément *</label>
-                <select className="select" value={String(newAgr)} onChange={e=>setNewAgr(e.target.value==="true")}>
-                  <option value="false">Non.</option><option value="true">Oui.</option>
+                <select className="select" value={String(agr)} onChange={e=>setAgr(e.target.value==="true")}>
+                  <option value="false">Non.</option>
+                  <option value="true">Oui.</option>
                 </select>
-              </div>
-              <button className="btn btn-primary w-full" onClick={submitCreate}>Ajouter objet social</button>
-              <p className="text-xs text-[var(--muted)]">* Champs obligatoires.</p>
-              <div className="flex justify-end">
-                <button className="btn" onClick={()=>setShowCreate(false)}>Fermer</button>
+                {matchedId !== null && (
+                  <p className="text-[11px] text-[var(--muted)]">Valeur héritée de l objet existant.</p>
+                )}
               </div>
             </div>
+
+            <div className="flex items-center gap-2 mt-6">
+              <button className="btn" onClick={()=>setOpen(false)}>Fermer</button>
+              <div className="flex-1" />
+              <button className="btn btn-primary" onClick={submit}>
+                {matchedId !== null ? "Affecter" : "Ajouter"}
+              </button>
+            </div>
+
+            <p className="text-xs text-[var(--muted)] mt-2">* Champs obligatoires.</p>
           </div>
         </div>
       )}
-
-      {/* Assign modal */}
-      {showAssign && (
-        <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40">
-          <div className="card w-[520px]">
-            <h3 className="text-center text-lg font-semibold mb-4">AFFECTER UN OBJET SOCIAL</h3>
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <label className="text-xs">Nomination *</label>
-                <select className="select" value={String(selected)} onChange={e=>setSelected(Number(e.target.value))}>
-                  <option value="">Sélectionnez un objet social</option>
-                  {masters.map(m=> <option key={m.id} value={m.id}>{m.nomination}</option>)}
-                </select>
-              </div>
-              <button className="btn btn-primary w-full" onClick={submitAssign}>Ajouter objet social</button>
-              <p className="text-xs text-[var(--muted)]">* Champs obligatoires.</p>
-              <div className="flex justify-end">
-                <button className="btn" onClick={()=>setShowAssign(false)}>Fermer</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 }
