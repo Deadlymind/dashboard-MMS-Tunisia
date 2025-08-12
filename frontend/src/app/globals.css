@@ -1,5 +1,45 @@
 @import "tailwindcss";
-:root{--bg:#f5f7fb;--fg:#101217;--card:#fff;--muted:#6b7280;--brand:#b49a64}
-.dark{--bg:#0f1115;--fg:#e5e7eb;--card:#1c1f27;--muted:#9ca3af;--brand:#b49a64}
-html,body{height:100%;background:var(--bg);color:var(--fg)}
-.card{background:var(--card);border-radius:.75rem;padding:1rem;box-shadow:0 1px 2px rgb(0 0 0 / .06)}
+
+/* ---- Light / Dark tokens (cleaner palette) ---- */
+:root{
+  --bg:#0b0c10;             /* page bg fallback (dark for transitions) */
+  --fg:#0f172a;
+  --muted:#64748b;
+  --card:#ffffff;
+  --surface:#f8fafc;
+  --line:#e5e7eb;
+  --brand:#b49a64;
+  --brand-ink:#1f2937;
+  --ring:#94a3b8;
+}
+.dark{
+  --bg:#0f1115;
+  --fg:#e5e7eb;
+  --muted:#9aa4b2;
+  --card:#151821;
+  --surface:#0f131a;
+  --line:#252a37;
+  --brand:#b49a64;
+  --brand-ink:#0b0c10;
+  --ring:#475569;
+}
+
+/* ---- Base ---- */
+html,body{height:100%}
+body{background:var(--surface);color:var(--fg);-webkit-font-smoothing:antialiased}
+
+/* ---- Utilities ---- */
+.container-px{padding-left:1rem;padding-right:1rem}
+@media(min-width:1024px){.container-px{padding-left:2rem;padding-right:2rem}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1rem}
+.btn{display:inline-flex;align-items:center;gap:.5rem;border-radius:10px;padding:.55rem .9rem;border:1px solid var(--line)}
+.btn-primary{background:var(--brand);color:#fff;border-color:var(--brand)}
+.btn-ghost{background:transparent}
+.input{width:100%;border:1px solid var(--line);border-radius:10px;padding:.55rem .75rem;background:transparent}
+.select{width:100%;border:1px solid var(--line);border-radius:10px;padding:.55rem .75rem;background:transparent}
+.table{width:100%;border-collapse:separate;border-spacing:0}
+.table thead th{position:sticky;top:0;background:var(--card);border-bottom:1px solid var(--line);padding:.65rem .5rem;text-align:left;font-size:.78rem;letter-spacing:.02em;color:var(--muted)}
+.table tbody td{padding:.7rem .5rem;border-bottom:1px solid var(--line)}
+.row:hover{background:color-mix(in oklab, var(--card) 90%, var(--brand) 10%)}
+.badge{display:inline-flex;align-items:center;border-radius:999px;border:1px solid var(--line);padding:.15rem .5rem;font-size:.72rem}
+.focus-ring:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
