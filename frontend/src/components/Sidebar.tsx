@@ -2,71 +2,114 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Boxes, ChevronDown, ChevronRight, Users, Package, Tag, FileText, Building2, Briefcase } from "lucide-react";
+import {
+  Factory, ChevronRight, ChevronDown, FolderTree,
+  UsersRound, Package, Files, ClipboardList, BarChart3
+} from "lucide-react";
 
-type NavItem = { label:string; href:string; icon: any; };
-type Group = { label:string; items: NavItem[]; };
+type Leaf = { label: string; href: string };
+type Node = { id: string; label: string; icon?: React.ReactNode; children?: (Leaf|Node)[]; href?: string };
 
-const structure: Group = {
-  label: "Structure",
-  items: [
-    { label:"Clients", href:"/exploitation/structure/clients", icon: Users },
-    { label:"Fournisseurs", href:"/exploitation/structure/fournisseurs", icon: Building2 },
-    { label:"Sous-traitants", href:"/exploitation/structure/sous-traitants", icon: Briefcase },
-    { label:"Modèles & Imprimés", href:"/exploitation/structure/modeles-imprimes", icon: FileText },
-    { label:"Articles", href:"/exploitation/structure/articles", icon: Package },
-    { label:"Familles d’articles", href:"/exploitation/structure/familles-articles", icon: Tag },
+const NAV: Node = {
+  id: "exploitation",
+  label: "Exploitation",
+  icon: <Factory size={16} />,
+  children: [
+    {
+      id: "exploitation/structure",
+      label: "Structure",
+      icon: <FolderTree size={16} />,
+      children: [
+        { label: "Clients",              href: "/exploitation/structure/clients" },
+        { label: "Fournisseurs",         href: "/exploitation/structure/fournisseurs" },
+        { label: "Sous-traitants",       href: "/exploitation/structure/sous-traitants" },
+        { label: "Modèles & Imprimés",   href: "/exploitation/structure/modeles-imprimes" },
+        { label: "Articles",             href: "/exploitation/structure/articles" },
+        { label: "Familles d’articles",  href: "/exploitation/structure/familles-articles" },
+      ],
+    },
+    { id: "exploitation/traitement", label: "Traitement", icon: <ClipboardList size={16} />, href: "/exploitation/traitement" },
+    { id: "exploitation/suivi",      label: "Suivi",      icon: <UsersRound size={16} />,     href: "/exploitation/suivi" },
+    { id: "exploitation/etats",      label: "États",      icon: <BarChart3 size={16} />,      href: "/exploitation/etats" },
   ],
 };
 
-const groups: Group[] = [
-  structure,
-  { label:"Traitement", items: [] },
-  { label:"Suivi", items: [] },
-  { label:"États", items: [] },
-];
+function ItemLeaf({ leaf, active }: { leaf: Leaf; active: boolean }) {
+  return (
+    <Link
+      href={leaf.href}
+      className={`block px-4 py-2 text-sm rounded-md hover:bg-[var(--base-200)] ${
+        active ? "bg-[var(--base-200)] font-medium" : "text-[var(--muted)]"
+      }`}
+    >
+      {leaf.label}
+    </Link>
+  );
+}
 
-export default function Sidebar(){
+export default function Sidebar() {
   const pathname = usePathname();
-  const [open,setOpen] = useState<Record<string,boolean>>({});
-  useEffect(()=>{ const x = localStorage.getItem("sb-open"); if(x) setOpen(JSON.parse(x)); },[]);
-  useEffect(()=>{ localStorage.setItem("sb-open", JSON.stringify(open)); },[open]);
+  const [open, setOpen] = useState<Record<string, boolean>>({});
 
-  function Section({g}:{g:Group}){
-    const expanded = open[g.label] ?? g.label==="Structure"; // Structure open by default
+  // Auto-open groups that match the current path
+  useEffect(() => {
+    const o: Record<string, boolean> = {};
+    const ensureOpen = (node: Node) => {
+      if (pathname.startsWith("/" + node.id)) o[node.id] = true;
+      node.children?.forEach((c) => {
+        if ("children" in c && c.children) ensureOpen(c as Node);
+      });
+    };
+    ensureOpen(NAV);
+    // Always open the root group
+    o[NAV.id] = true;
+    setOpen((prev) => ({ ...prev, ...o }));
+  }, [pathname]);
+
+  const toggle = (id: string) => setOpen((s) => ({ ...s, [id]: !s[id] }));
+
+  const renderNode = (node: Node, depth = 0) => {
+    const isOpen = !!open[node.id];
+    const isActive = pathname.startsWith("/" + node.id);
+    const hasChildren = (node.children ?? []).length > 0;
+
     return (
-      <div className="mt-3">
-        <button onClick={()=>setOpen(s=>({...s,[g.label]:!expanded}))} className="flex items-center justify-between w-full px-3 py-2 text-xs uppercase tracking-wide text-[var(--muted)]">
-          <span className="inline-flex items-center gap-2"><Boxes size={14}/>{g.label}</span>
-          {expanded ? <ChevronDown size={14}/> : <ChevronRight size={14}/>}
+      <div key={node.id} className="mb-1">
+        <button
+          onClick={() => (hasChildren ? toggle(node.id) : undefined)}
+          className={`w-full flex items-center justify-between px-3 py-2 rounded-md ${
+            isActive ? "bg-[var(--base-200)]" : "hover:bg-[var(--base-200)]"
+          }`}
+        >
+          <span className="flex items-center gap-2 text-sm">
+            {node.icon}
+            <span>{node.label}</span>
+          </span>
+          {hasChildren ? (isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />) : null}
         </button>
-        {expanded && (
-          <ul className="px-2">
-            {g.items.map((it)=> {
-              const active = pathname.startsWith(it.href);
-              return (
-                <li key={it.href}>
-                  <Link href={it.href}
-                    className={`flex items-center gap-3 px-2 py-2 rounded-md hover:bg-[var(--surface)] ${active ? "bg-[var(--surface)] font-medium" : ""}`}>
-                    <it.icon size={16}/> <span className="text-sm">{it.label}</span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+
+        {hasChildren && isOpen && (
+          <div className="mt-1 ml-2 border-l border-[var(--base-300)]">
+            {(node.children as (Leaf|Node)[]).map((c, idx) =>
+              "children" in c ? (
+                <div key={idx} className="pl-2">{renderNode(c as Node, depth + 1)}</div>
+              ) : (
+                <div key={(c as Leaf).href} className="pl-3">
+                  <ItemLeaf leaf={c as Leaf} active={pathname.startsWith((c as Leaf).href)} />
+                </div>
+              )
+            )}
+          </div>
         )}
       </div>
     );
-  }
+  };
 
   return (
-    <aside className="hidden lg:block sticky top-0 h-screen w-[260px] border-r" style={{borderColor:"var(--line)"}}>
-      <div className="h-14 border-b flex items-center px-3" style={{borderColor:"var(--line)"}}>
-        <div className="h-8 w-8 rounded-md" style={{background:"var(--brand)"}} />
-        <div className="ml-2 font-semibold">Murex</div>
-      </div>
-      <div className="p-2">
-        {groups.map(g => <Section key={g.label} g={g}/>)}
+    <aside className="w-64 shrink-0 border-r border-[var(--base-300)] bg-[var(--base-100)] h-screen sticky top-0 overflow-y-auto">
+      <div className="p-4">
+        <Link href="/" className="block font-semibold text-sm mb-4">MMS Tunisia</Link>
+        {renderNode(NAV)}
       </div>
     </aside>
   );
