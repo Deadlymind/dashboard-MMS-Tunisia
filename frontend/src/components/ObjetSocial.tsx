@@ -120,7 +120,7 @@ export default function ObjetSocial({ clientId }: { clientId: string }) {
       {/* Table */}
       <div className="overflow-auto rounded-xl border">
         <table className="min-w-full text-sm">
-          <thead className="bg-gray-50">
+          <thead className="bg-black-50">
             <tr className="text-left">
               <th className="px-4 py-3">#</th>
               <th className="px-4 py-3">Nomination</th>
