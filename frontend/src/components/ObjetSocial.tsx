@@ -2,7 +2,14 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { V1, getClientObjets, createClientObjet, deleteClientObjet, jfetch } from "@/lib/api";
+import {
+  V1,
+  jfetch,
+  getClientObjets,
+  createClientObjet,
+  deleteClientObjet,
+  listSocialObjects,
+} from "@/lib/api";
 
 type Objet = {
   id: number;
@@ -26,22 +33,24 @@ export default function ObjetSocial({ clientId }: { clientId: string }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // options (from backend list; fallback to static)
+  // options (from backend; fallback list)
   const [options, setOptions] = useState<SocialOption[]>([]);
 
   async function load() {
     setLoading(true);
-    const list = await getClientObjets(clientId);
-    setItems(Array.isArray(list) ? list : []);
-    setLoading(false);
+    try {
+      const list = await getClientObjets(clientId);
+      setItems(Array.isArray(list) ? list : []);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function loadOptions() {
     try {
-      const data: any[] = await jfetch(`${V1}/exploitation/objets-sociaux/`);
-      const names = Array.isArray(data)
-        ? data.map((o) => ({ id: o.id, nomination: o.nomination }))
-        : [];
+      // Handle BOTH array and paginated shapes, request big page size to avoid multiple requests
+      const arr = await listSocialObjects(1000);
+      const names = arr.map((o: any) => ({ id: o.id, nomination: o.nomination as string }));
       setOptions(names);
     } catch {
       // fallback minimal list
@@ -53,7 +62,11 @@ export default function ObjetSocial({ clientId }: { clientId: string }) {
     }
   }
 
-  useEffect(() => { load(); loadOptions(); }, [clientId]);
+  useEffect(() => {
+    load();
+    loadOptions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId]);
 
   async function onCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -112,32 +125,32 @@ export default function ObjetSocial({ clientId }: { clientId: string }) {
               <th className="px-4 py-3">#</th>
               <th className="px-4 py-3">Nomination</th>
               <th className="px-4 py-3">Avec agrément</th>
-              <th className="px-4 py-3"></th>
+              <th className="px-4 py-3" />
             </tr>
           </thead>
-          <tbody>
-            {loading ? (
-              <tr><td className="px-4 py-4" colSpan={4}>Chargement…</td></tr>
-            ) : (items?.length ?? 0) === 0 ? (
-              <tr><td className="px-4 py-4" colSpan={4}>Aucun objet social.</td></tr>
-            ) : (
-              items.map((it) => (
-                <tr key={it.id} className="border-t">
-                  <td className="px-4 py-3">{it.code ?? it.id}</td>
-                  <td className="px-4 py-3">{it.nomination}</td>
-                  <td className="px-4 py-3">{it.agrement ? "Oui" : "Non"}</td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => onDelete(it.id)}
-                      className="rounded-lg border px-2 py-1 text-xs hover:bg-gray-50"
-                    >
-                      Supprimer
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
+        <tbody>
+          {loading ? (
+            <tr><td className="px-4 py-4" colSpan={4}>Chargement…</td></tr>
+          ) : (items?.length ?? 0) === 0 ? (
+            <tr><td className="px-4 py-4" colSpan={4}>Aucun objet social.</td></tr>
+          ) : (
+            items.map((it) => (
+              <tr key={it.id} className="border-t">
+                <td className="px-4 py-3">{it.code ?? it.id}</td>
+                <td className="px-4 py-3">{it.nomination}</td>
+                <td className="px-4 py-3">{it.agrement ? "Oui" : "Non"}</td>
+                <td className="px-4 py-3 text-right">
+                  <button
+                    onClick={() => onDelete(it.id)}
+                    className="rounded-lg border px-2 py-1 text-xs hover:bg-gray-50"
+                  >
+                    Supprimer
+                  </button>
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
         </table>
       </div>
 
