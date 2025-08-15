@@ -1,0 +1,3 @@
+﻿code,raison_sociale,type_personne,statut,forme_juridique,pays,ville,assujetti_tva,domicilie_sms,capital_social,valeur_nominale,nombre_part,created_at
+CL0011,CSVTSEED_1755277215_12878 A,PM,EXERCANTE,,TN,,1,0,0.000,0.000,0,2025-08-15 17:00:35.020554+00:00
+CL0012,CSVTSEED_1755277215_12878 B,PM,EXERCANTE,,TN,,1,0,0.000,0.000,0,2025-08-15 17:00:35.213544+00:00
