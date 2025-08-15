@@ -64,9 +64,7 @@ export default function InfoForm({
   initial: Client;
   choices: Choices;
 }) {
-  const [form, setForm] = useState<Client>({
-    ...initial,
-  });
+  const [form, setForm] = useState<Client>({ ...initial });
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -77,11 +75,18 @@ export default function InfoForm({
     e.preventDefault();
     setSaving(true);
     setMsg(null);
+
+    // ---- IMPORTANT: never send `code` on PATCH ----
+    const { code: _omit, ...payload } = form;
+
     try {
       const res = await fetch(`http://127.0.0.1:8000/api/v1/exploitation/clients/${id}/`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(payload),
         cache: "no-store",
       });
       if (!res.ok) {
@@ -90,7 +95,7 @@ export default function InfoForm({
       }
       setMsg("Enregistré ✅");
     } catch (err: any) {
-      setMsg(`Erreur: ${err.message ?? String(err)}`);
+      setMsg(`Erreur: ${err?.message ?? String(err)}`);
     } finally {
       setSaving(false);
     }
@@ -103,6 +108,14 @@ export default function InfoForm({
 
   return (
     <form onSubmit={onSubmit} className="space-y-6">
+      {/* read-only display of the code (no input name, so it won't be sent) */}
+      {initial?.code && (
+        <div className="card">
+          <div className="text-sm" style={{ color: "var(--muted)" }}>Code</div>
+          <div className="input" aria-disabled="true">{initial.code}</div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Field label="PP / PM *">
           <select
@@ -264,11 +277,7 @@ export default function InfoForm({
         </Field>
       </div>
 
-      <button
-        type="submit"
-        className="btn btn-primary"
-        disabled={saving}
-      >
+      <button type="submit" className="btn btn-primary" disabled={saving}>
         {saving ? "Enregistrement..." : "Mettre à jour"}
       </button>
 
